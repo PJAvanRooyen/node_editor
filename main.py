@@ -1,18 +1,18 @@
-import os
 import subprocess
+import threading
 
 from src.node_editor_view.node_editor import NodeEditorApp
 
 
-if __name__ == '__main__':
-    # Start Flask API as a subprocess
-    api_dir_path = os.path.join(os.path.dirname(__file__), 'scripts')
-    api_path = os.path.join(api_dir_path, 'api.py')
-    flask_api = subprocess.Popen(['python', api_path])
-    print("Flask subprocess PID:", flask_api.pid)
-
+def start_app():
     app = NodeEditorApp()
     app.run()
 
-    # Stop Flask API
-    flask_api.terminate()
+
+if __name__ == '__main__':
+    api_process = subprocess.Popen(['python', 'api.py'])
+
+    thread = threading.Thread(target=start_app())
+    thread.start()
+
+    api_process.terminate()

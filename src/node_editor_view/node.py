@@ -1,9 +1,8 @@
 from kivy.uix.widget import Widget
 from kivy.uix.label import Label
 from kivy.graphics import Color, RoundedRectangle
-
-# TODO: move this
-import requests
+from kivy.network.urlrequest import UrlRequest
+import json
 
 
 class ConnectionInterface(Widget):
@@ -43,19 +42,31 @@ class Node(Widget):
 
     def on_touch_down(self, touch):
         if self.collide_point(*touch.pos):
-            self.run()
+            self.increment()
 
-    def run(self):
-        # TODO: pass initial value here
+    def increment(self):
         if self.label.text is self.name:
-            value = 0
+            self.get_value()
         else:
-            value = self.label.text
+            value = int(self.label.text)
+            value += 1
+            self.set_value(value)
 
-        # Call the API using requests library
-        response = requests.post(f'http://localhost:5000/{self.name}', json={'value': value})
+    def get_value(self):
+        UrlRequest('http://localhost:5000/api/my_class/get', on_success=self.handle_get_response)
 
-        # Get the result from the API response
-        result = response.json()['result']
+    def handle_get_response(self, request, response):
+        value = response.get('value', None)
+        if value is not None:
+            self.label.text = str(value)
+        else:
+            self.label.text = str(0)
 
-        self.label.text = f'{result}'
+    def set_value(self, value):
+        data = json.dumps({'value': value})
+        headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+        UrlRequest('http://localhost:5000/api/my_class/set', req_body=data, req_headers=headers, on_success=self.handle_set_response)
+
+    def handle_set_response(self, request, response):
+        value = response.get('value', None)
+        self.label.text = str(value)
