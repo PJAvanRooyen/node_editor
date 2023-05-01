@@ -1,50 +1,38 @@
-from flask import Flask, Blueprint, request
+from flask import Flask, Blueprint
 import os
-import importlib
+import importlib.util
 
 app = Flask(__name__)
-scripts_bp = Blueprint('scripts', __name__)
 
-scripts_dir = 'scripts'
+scripts_dir = os.path.join(os.path.dirname(__file__), "scripts")
+scripts = [f for f in os.listdir(scripts_dir) if f.endswith(".py")]
 
-# iterate over files in the scripts directory
-for filename in os.listdir(scripts_dir):
-    if filename.endswith('.py'):
-        # import the module
-        module_name = filename[:-3]
-        module = importlib.import_module(f'{scripts_dir}.{module_name}')
+for script in scripts:
+    module_name = os.path.splitext(script)[0]
+    module_path = os.path.join(scripts_dir, script)
 
-        # create an instance of the class
-        if hasattr(module, 'my_instance'):
-            instance = module.my_instance
-            print('Instance found')
-        else:
-            instance = None
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
 
-        # get the methods from the instance
-        if instance:
-            get_method = getattr(instance, 'get', None)
-            set_method = getattr(instance, 'set', None)
+    blueprint_name = module_name.replace(".", "_")
+    blueprint = Blueprint(blueprint_name, __name__)
 
-            # add them as endpoints to the blueprint
-            if get_method:
-                @scripts_bp.route(f'/{module_name}/get')
-                def get_endpoint():
-                    return get_method()
+    for name, cls in module.__dict__.items():
+        if isinstance(cls, type) and name.lower() == module_name.lower():
+            for method_name, func in cls.__dict__.items():
+                if callable(func) and not method_name.startswith("_"):
+                    instance = cls()
+                    method = getattr(instance, method_name, None)
+                    if method is not None:
+                        blueprint.add_url_rule(
+                            f"/{method_name}",
+                            method_name,
+                            lambda *args, **kwargs: method(*args, **kwargs),
+                            methods=["GET", "POST"]
+                        )
 
-            if set_method:
-                @scripts_bp.route(f'/{module_name}/set', methods=['POST'])
-                def set_endpoint():
-                    data = request.get_json()
-                    value = data.get('value', None)
-                    if value is not None:
-                        return set_method(value)
-                    else:
-                        return {'error': 'No value provided.'}
+    app.register_blueprint(blueprint)
 
-# register the blueprint with the app
-app.register_blueprint(scripts_bp, url_prefix='/api')
-
-# start the app
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run()

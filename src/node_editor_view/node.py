@@ -42,31 +42,11 @@ class Node(Widget):
 
     def on_touch_down(self, touch):
         if self.collide_point(*touch.pos):
-            self.increment()
+            self.init()
 
-    def increment(self):
-        if self.label.text is self.name:
-            self.get_value()
-        else:
-            value = int(self.label.text)
-            value += 1
-            self.set_value(value)
+    def init(self):
+        UrlRequest(f'http://localhost:5000/hello', on_success=self.init_response)
 
-    def get_value(self):
-        UrlRequest('http://localhost:5000/api/my_class/get', on_success=self.handle_get_response)
-
-    def handle_get_response(self, request, response):
-        value = response.get('value', None)
-        if value is not None:
-            self.label.text = str(value)
-        else:
-            self.label.text = str(0)
-
-    def set_value(self, value):
-        data = json.dumps({'value': value})
-        headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
-        UrlRequest('http://localhost:5000/api/my_class/set', req_body=data, req_headers=headers, on_success=self.handle_set_response)
-
-    def handle_set_response(self, request, response):
+    def init_response(self, request, response):
         value = response.get('value', None)
         self.label.text = str(value)
